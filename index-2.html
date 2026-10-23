@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARTEMIX | Reta tu creatividad</title>
+<style>
+:root{--bg:#10152d;--panel:#1b2345;--ink:#f7f8ff;--muted:#c4cbe8;--accent:#ffcb47;--pink:#ff5da2;--blue:#65d8ff;--green:#74efb0}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(circle at top right,#39356e,#10152d 55%);color:var(--ink);min-height:100vh}
+main{width:min(920px,100%);margin:auto;padding:20px}.brand{text-align:center;padding:16px 0 8px}.logo{font-size:clamp(2.5rem,9vw,4.5rem);font-weight:1000;letter-spacing:.08em;color:var(--accent);text-shadow:4px 4px 0 #b43c88}.tag{color:var(--muted);margin-top:-8px}
+.panel{background:rgba(27,35,69,.96);border:1px solid #414b79;border-radius:22px;padding:22px;margin:16px 0;box-shadow:0 16px 35px #0003}
+h1,h2,h3{margin-top:0}h2{color:var(--accent)}p{line-height:1.5}.muted{color:var(--muted)}label{display:block;margin:12px 0 6px;font-weight:700}input{width:100%;padding:14px;border-radius:12px;border:2px solid #59648e;background:#10152d;color:white;font-size:1rem}
+button{border:0;border-radius:13px;padding:13px 17px;font-size:1rem;font-weight:800;cursor:pointer;background:var(--accent);color:#22213b;margin:5px 4px 5px 0}button.secondary{background:#38436d;color:white;border:1px solid #6573a8}button:disabled{opacity:.5;cursor:not-allowed}.hidden{display:none!important}
+.row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}.pill{padding:7px 12px;border-radius:999px;background:#303a65;font-weight:800}.timer{color:var(--pink)}.progress{height:9px;background:#0e1329;border-radius:20px;overflow:hidden;margin:12px 0}.bar{height:100%;background:linear-gradient(90deg,var(--blue),var(--pink));width:0%}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.answers button{margin:0;min-height:58px;background:#303a65;color:white;border:1px solid #6471a3}.answers button:hover{background:#48558b}.feedback{min-height:30px;font-weight:800;margin-top:12px}.color-options{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px}.color-options button{flex:1;min-width:100px;background:#303a65;color:white}.swatch{height:95px;border-radius:16px;border:3px solid #ffffff55;margin:16px 0;display:grid;place-items:center;color:#111;font-weight:900;text-shadow:0 1px 3px #fff8}
+table{width:100%;border-collapse:collapse;margin-top:12px}th,td{text-align:left;padding:10px 7px;border-bottom:1px solid #414b79}th{color:var(--accent)}td:first-child{font-weight:900}.small{font-size:.88rem}.notice{padding:12px;border-radius:12px;background:#332c54;border:1px solid #6a568d;color:#f2eaff}
+@media(max-width:520px){main{padding:12px}.panel{padding:16px}.answers{grid-template-columns:1fr}th,td{font-size:.85rem;padding:8px 4px}}
+</style>
+</head>
+<body>
+<main>
+<header class="brand"><div class="logo">ARTEMIX</div><p class="tag">Reta tu mente. Mezcla ideas. ¡Sube en la tabla!</p></header>
+<section id="welcome" class="panel">
+<h2>🎨 ¡Bienvenido a ARTEMIX!</h2>
+<p>Responde preguntas y supera retos de colores. Tendrás <strong>60 segundos por actividad</strong> y dos intentos por reto. Cada respuesta correcta suma puntos.</p>
+<label for="playerName">Nombre del jugador</label>
+<input id="playerName" maxlength="100" autocomplete="name" placeholder="Escribe tu nombre y apellido">
+<p class="muted small">Por privacidad, usa solo el nombre que la organización del juego te haya autorizado a mostrar.</p>
+<button id="startBtn">Comenzar juego</button>
+<button id="showBoardBtn" class="secondary">Ver clasificación</button>
+</section>
+<section id="game" class="panel hidden">
+<div class="row"><span id="stage" class="pill">Actividad 1 de 30</span><span class="pill timer">⏱ <span id="time">60</span> s</span><span class="pill">⭐ <span id="score">0</span></span></div>
+<div class="progress"><div id="bar" class="bar"></div></div>
+<h2 id="activityTitle">Reto</h2><p id="question"></p><div id="swatch" class="swatch hidden"></div>
+<div id="answers" class="answers"></div><div id="feedback" class="feedback" aria-live="polite"></div>
+<button id="nextBtn" class="hidden">Siguiente actividad →</button>
+</section>
+<section id="finish" class="panel hidden">
+<h2>🏆 ¡Partida terminada!</h2><p id="summary"></p><p id="saveStatus" class="notice">Preparando el resultado…</p>
+<button id="againBtn">Jugar otra vez</button><button id="finishBoardBtn" class="secondary">Ver clasificación</button>
+</section>
+<section id="board" class="panel">
+<div class="row"><h2>🏅 Tabla de clasificación</h2><button id="refreshBtn" class="secondary">Actualizar</button></div>
+<p class="muted small">Orden: mayor puntaje y, en caso de empate, menor tiempo total.</p>
+<div id="boardStatus" class="muted">La tabla está preparada. Para compartir puntajes entre dispositivos, falta conectar Firebase y configurar el acceso seguro.</div>
+<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Jugador</th><th>Puntos</th><th>Tiempo</th></tr></thead><tbody id="boardRows"></tbody></table></div>
+</section>
+<footer class="muted small">ARTEMIX · Juego educativo</footer>
+</main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, push, set, get, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+/* PASO DE CONFIGURACIÓN:
+   Reemplaza los valores de ejemplo por los de Firebase Console > Config.
+   databaseURL debe ser la dirección de tu Realtime Database.
+*/
+const firebaseConfig = {
+  apiKey: "PEGA_AQUI_API_KEY",
+  authDomain: "PEGA_AQUI_AUTH_DOMAIN",
+  databaseURL: "PEGA_AQUI_DATABASE_URL",
+  projectId: "PEGA_AQUI_PROJECT_ID",
+  storageBucket: "PEGA_AQUI_STORAGE_BUCKET",
+  messagingSenderId: "PEGA_AQUI_MESSAGING_SENDER_ID",
+  appId: "PEGA_AQUI_APP_ID"
+};
+
+const firebaseReady = Object.values(firebaseConfig).every(v => v && !v.startsWith("PEGA_AQUI"));
+let db = null;
+if (firebaseReady) {
+  const app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+}
+
+const questions = [
+{ text:"¿Qué son los colores?", options:["Percepciones visuales producidas por la luz","Solo nombres de pinturas","Formas geométricas","Tipos de papel"], correct:0 },
+{ text:"¿Cuáles son los colores primarios en la pintura tradicional?", options:["Verde, naranja y violeta","Rojo, amarillo y azul","Blanco, negro y gris","Rosa, café y celeste"], correct:1 },
+{ text:"¿A qué grupo pertenece el color naranja?", options:["Primarios","Neutros","Secundarios","Fríos"], correct:2 },
+{ text:"¿Qué efectos suelen crear los colores cálidos en una composición?", options:["Sensación de energía, calidez y cercanía","Sensación de hielo y distancia únicamente","Ausencia total de emoción","Solo oscuridad"], correct:0 },
+{ text:"¿Qué es el círculo cromático?", options:["Una rueda que organiza los colores y sus relaciones","Un tipo de pincel redondo","Una pintura hecha solo con círculos","Una escala de grises"], correct:0 },
+{ text:"¿Qué son los colores complementarios?", options:["Colores que siempre son iguales","Colores que están enfrentados en el círculo cromático","Colores que no se pueden mezclar","Solo blanco y negro"], correct:1 },
+{ text:"¿Cuál es la diferencia entre colores cálidos y colores fríos?", options:["Los cálidos recuerdan al fuego y al sol; los fríos al agua y al hielo","Los cálidos son siempre claros y los fríos siempre oscuros","No existe ninguna diferencia","Los fríos solo existen en la naturaleza"], correct:0 },
+{ text:"¿Qué son el negro y el blanco?", options:["Colores secundarios","Colores complementarios entre sí","Tonos acromáticos; el blanco reúne la luz visible y el negro representa ausencia de luz","Colores primarios de la luz"], correct:2 },
+{ text:"¿Qué es un bodegón?", options:["Una obra que representa objetos inanimados, como frutas, flores o recipientes","Un retrato de una persona","Un paisaje de montañas únicamente","Una escultura abstracta"], correct:0 },
+{ text:"¿Qué es el arte figurativo?", options:["Arte que representa figuras reconocibles de personas, animales u objetos","Arte que usa solamente líneas sin representar nada reconocible","Una técnica exclusiva de fotografía","Una mezcla de colores sin forma"], correct:0 },
+{ text:"¿De qué color es el Sol?", options:["Verde","Blanco; desde la Tierra suele verse amarillento","Morado","Negro"], correct:1 },
+{ text:"¿Qué se considera arte?", options:["Una forma de expresión y creación humana que comunica ideas, emociones o experiencias","Solo dibujar perfectamente","Únicamente pintar sobre lienzo","Cualquier objeto fabricado en una fábrica"], correct:0 },
+{ text:"¿Con qué recursos pintaban nuestros antepasados?", options:["Con pinturas acrílicas modernas","Con pigmentos naturales como tierra, ocre, carbón y minerales","Con marcadores fluorescentes","Con pintura en aerosol industrial"], correct:1 },
+{ text:"¿Quién pintó la Mona Lisa?", options:["Pablo Picasso","Vincent van Gogh","Leonardo da Vinci","Salvador Dalí"], correct:2 },
+{ text:"¿Qué es la saturación de un color?", options:["La intensidad o pureza del color","El tamaño del dibujo","La temperatura de la pintura","La cantidad de líneas de una obra"], correct:0 },
+{ text:"¿A qué se refiere el término tono o matiz?", options:["Al nombre o cualidad que permite distinguir un color de otro","Al precio de una pintura","Al tamaño de un pincel","A la textura del papel únicamente"], correct:0 },
+{ text:"¿Qué es la monocromía?", options:["Una obra realizada con un solo color y sus variaciones de tono o intensidad","Una obra que usa todos los colores posibles","Pintar sin ningún color","Una técnica exclusiva de mosaicos"], correct:0 },
+{ text:"¿Qué es un mosaico?", options:["Una imagen formada al unir pequeñas piezas de colores, como piedra, vidrio o cerámica","Un dibujo hecho solo con lápiz","Una pintura de un solo trazo","Una tabla para mezclar pintura"], correct:0 },
+{ text:"¿Cómo se llama la tabla de madera o plástico que utilizan los pintores para mezclar pinturas?", options:["Caballete","Paleta","Lienzo","Espátula"], correct:1 },
+{ text:"¿Qué colores componen la luz blanca visible del Sol?", options:["Solo rojo y azul","Los colores del espectro visible: rojo, naranja, amarillo, verde, azul y violeta, entre otros matices","Solo blanco y negro","Verde, rosa y café"], correct:1 }
+].map(q=>({type:"q",...q}));
+
+const colors = [
+{a:"Rojo",b:"Amarillo",opts:["Verde","Naranja","Morado","Azul"],correct:1,hex:"#f3a44b"},
+{a:"Azul",b:"Amarillo",opts:["Verde","Naranja","Rosa","Rojo"],correct:0,hex:"#a8d85b"},
+{a:"Rojo",b:"Azul",opts:["Amarillo","Morado","Verde","Naranja"],correct:1,hex:"#9c70cf"},
+{a:"Blanco",b:"Negro",opts:["Gris","Rosa","Naranja","Verde"],correct:0,hex:"#b9bdc9"},
+{a:"Rojo",b:"Blanco",opts:["Turquesa","Rosa","Marrón","Verde"],correct:1,hex:"#f39cbd"},
+{a:"Azul",b:"Rojo",opts:["Verde","Morado","Amarillo","Gris"],correct:1,hex:"#8e69c8"},
+{a:"Amarillo",b:"Rojo",opts:["Naranja","Azul","Negro","Verde"],correct:0,hex:"#f4a141"},
+{a:"Azul",b:"Blanco",opts:["Celeste","Marrón","Rojo","Naranja"],correct:0,hex:"#a6e4f7"},
+{a:"Rojo",b:"Amarillo",opts:["Morado","Naranja","Azul","Gris"],correct:1,hex:"#f4a141"},
+{a:"Amarillo",b:"Azul",opts:["Verde","Rosa","Negro","Rojo"],correct:0,hex:"#9acb53"}
+].map(c=>({type:"c",...c,text:`¿Qué color se obtiene al mezclar ${c.a.toLowerCase()} y ${c.b.toLowerCase()}?`}));
+
+const activities = [...questions,...colors];
+const $ = id => document.getElementById(id);
+let name="", index=0, score=0, correctCount=0, colorCount=0, elapsed=0, startAt=0, timer=null, seconds=60, attempts=0, locked=false;
+const hide = id => $(id).classList.add("hidden");
+const show = id => $(id).classList.remove("hidden");
+function setStatus(message){$("saveStatus").textContent=message}
+function startGame(){
+  name=$("playerName").value.trim().replace(/\s+/g," ");
+  if(name.length<3){alert("Escribe un nombre de al menos 3 caracteres.");return}
+  index=0;score=0;correctCount=0;colorCount=0;elapsed=0;startAt=Date.now();
+  hide("welcome");hide("finish");hide("board");show("game");renderActivity();
+}
+function renderActivity(){
+  clearInterval(timer);seconds=60;attempts=0;locked=false;
+  $("stage").textContent=`Actividad ${index+1} de ${activities.length}`;
+  $("score").textContent=score;$("time").textContent=seconds;$("bar").style.width="0%";
+  $("feedback").textContent="";$("nextBtn").classList.add("hidden");
+  const a=activities[index];$("activityTitle").textContent=a.type==="q"?"🧠 Pregunta de conocimiento":"🎨 Reto de colores";
+  $("question").textContent=a.text;
+  const sw=$("swatch");if(a.type==="c"){show("swatch");sw.style.background=a.hex;sw.textContent=`${a.a} + ${a.b}`}else{hide("swatch");sw.textContent=""}
+  const holder=$("answers");holder.innerHTML="";
+  a.options.forEach((opt,i)=>{const b=document.createElement("button");b.textContent=opt;b.addEventListener("click",()=>answer(i));holder.appendChild(b)});
+  timer=setInterval(()=>{seconds--;elapsed++;$("time").textContent=seconds;$("bar").style.width=((60-seconds)/60*100)+"%";if(seconds<=0)finishActivity(true)},1000);
+}
+function answer(choice){
+ if(locked)return;const a=activities[index];attempts++;
+ if(choice===a.correct){locked=true;score+=100;correctCount++;if(a.type==="c")colorCount++;$("feedback").textContent="¡Correcto! +100 puntos";$("feedback").style.color="var(--green)";finishButtons()}
+ else if(attempts>=2){locked=true;$("feedback").textContent="Se acabaron los intentos. La respuesta era: "+a.options[a.correct];$("feedback").style.color="var(--pink)";finishButtons()}
+ else{$("feedback").textContent="No es esa. ¡Intenta una vez más!";$("feedback").style.color="var(--accent)"}
+}
+function finishButtons(){clearInterval(timer);[...$("answers").children].forEach(b=>b.disabled=true);$("nextBtn").classList.remove("hidden")}
+function finishActivity(timedOut=false){if(locked)return;locked=true;clearInterval(timer);[...$("answers").children].forEach(b=>b.disabled=true);if(timedOut)$("feedback").textContent="¡Se acabó el tiempo!";$("feedback").style.color="var(--pink)";$("nextBtn").classList.remove("hidden")}
+function next(){index++;if(index<activities.length)renderActivity();else endGame()}
+async function endGame(){
+ clearInterval(timer);elapsed=Math.max(elapsed,Math.floor((Date.now()-startAt)/1000));
+ hide("game");show("finish");$("summary").textContent=`${name}: ${score} puntos · ${correctCount} respuestas correctas de ${activities.length} · ${elapsed} segundos.`;
+ if(!db){setStatus("Falta completar la configuración de Firebase en el archivo index.html. El resultado no se ha guardado.");return}
+ setStatus("Guardando resultado…");
+ try{const entry=push(ref(db,"resultados"));await set(entry,{nombre:name,puntaje:score,tiempoSegundos:elapsed,respuestasCorrectas:correctCount,retosColoresSuperados:colorCount,creadoEn:Date.now()});setStatus("Resultado guardado correctamente.");await loadBoard()}
+ catch(e){console.error(e);setStatus("No se pudo guardar. Revisa las reglas de Firebase y la configuración. No abras la base de datos públicamente.")}
+}
+function fmtTime(s){return `${Math.floor(s/60)} min ${s%60} s`}
+async function loadBoard(){
+ $("boardStatus").textContent="Cargando resultados…";
+ if(!db){$("boardStatus").textContent="Firebase aún no está conectado: por ahora no se pueden cargar puntajes compartidos. Completa la configuración de Firebase para activar la clasificación.";return}
+ try{const snap=await get(query(ref(db,"resultados"),orderByChild("puntaje"),limitToLast(100)));let rows=[];snap.forEach(child=>rows.push(child.val()));rows.sort((a,b)=>(b.puntaje-a.puntaje)||(a.tiempoSegundos-b.tiempoSegundos));$("boardRows").innerHTML="";
+ rows.forEach((r,i)=>{const tr=document.createElement("tr");[i+1,r.nombre||"Jugador",r.puntaje??0,fmtTime(r.tiempoSegundos??0)].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td)});$("boardRows").appendChild(tr)});
+ $("boardStatus").textContent=rows.length?`Mostrando ${rows.length} resultados.`:"Todavía no hay resultados guardados.";
+ }catch(e){console.error(e);$("boardStatus").textContent="No se pudieron leer los resultados. Revisa las reglas de Firebase."}
+}
+$("startBtn").addEventListener("click",startGame);$("nextBtn").addEventListener("click",next);$("againBtn").addEventListener("click",()=>{show("welcome");hide("finish");hide("board");$("playerName").value=name;});$("showBoardBtn").addEventListener("click",()=>{show("board");loadBoard();$("board").scrollIntoView({behavior:"smooth"})});$("finishBoardBtn").addEventListener("click",()=>{show("board");loadBoard();$("board").scrollIntoView({behavior:"smooth"})});$("refreshBtn").addEventListener("click",loadBoard);
+loadBoard();
+</script>
+</body>
+</html>
