@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARTEMIX | Reta tu creatividad</title>
+<style>
+:root{--bg:#10152d;--panel:#1b2345;--ink:#f7f8ff;--muted:#c4cbe8;--accent:#ffcb47;--pink:#ff5da2;--blue:#65d8ff;--green:#74efb0}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(circle at top right,#39356e,#10152d 55%);color:var(--ink);min-height:100vh}
+main{width:min(920px,100%);margin:auto;padding:20px}.brand{text-align:center;padding:16px 0 8px}.logo{font-size:clamp(2.5rem,9vw,4.5rem);font-weight:1000;letter-spacing:.08em;color:var(--accent);text-shadow:4px 4px 0 #b43c88}.tag{color:var(--muted);margin-top:-8px}
+.panel{background:rgba(27,35,69,.96);border:1px solid #414b79;border-radius:22px;padding:22px;margin:16px 0;box-shadow:0 16px 35px #0003}
+h1,h2,h3{margin-top:0}h2{color:var(--accent)}p{line-height:1.5}.muted{color:var(--muted)}label{display:block;margin:12px 0 6px;font-weight:700}input{width:100%;padding:14px;border-radius:12px;border:2px solid #59648e;background:#10152d;color:white;font-size:1rem}
+button{border:0;border-radius:13px;padding:13px 17px;font-size:1rem;font-weight:800;cursor:pointer;background:var(--accent);color:#22213b;margin:5px 4px 5px 0}button.secondary{background:#38436d;color:white;border:1px solid #6573a8}button:disabled{opacity:.5;cursor:not-allowed}.hidden{display:none!important}
+.row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}.pill{padding:7px 12px;border-radius:999px;background:#303a65;font-weight:800}.timer{color:var(--pink)}.progress{height:9px;background:#0e1329;border-radius:20px;overflow:hidden;margin:12px 0}.bar{height:100%;background:linear-gradient(90deg,var(--blue),var(--pink));width:0%}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.answers button{margin:0;min-height:58px;background:#303a65;color:white;border:1px solid #6471a3}.answers button:hover{background:#48558b}.feedback{min-height:30px;font-weight:800;margin-top:12px}.color-options{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px}.color-options button{flex:1;min-width:100px;background:#303a65;color:white}.swatch{height:95px;border-radius:16px;border:3px solid #ffffff55;margin:16px 0;display:grid;place-items:center;color:#111;font-weight:900;text-shadow:0 1px 3px #fff8}
+table{width:100%;border-collapse:collapse;margin-top:12px}th,td{text-align:left;padding:10px 7px;border-bottom:1px solid #414b79}th{color:var(--accent)}td:first-child{font-weight:900}.small{font-size:.88rem}.notice{padding:12px;border-radius:12px;background:#332c54;border:1px solid #6a568d;color:#f2eaff}
+@media(max-width:520px){main{padding:12px}.panel{padding:16px}.answers{grid-template-columns:1fr}th,td{font-size:.85rem;padding:8px 4px}}
+</style>
+</head>
+<body>
+<main>
+<header class="brand"><div class="logo">ARTEMIX</div><p class="tag">Reta tu mente. Mezcla ideas. ¡Sube en la tabla!</p></header>
+<section id="welcome" class="panel">
+<h2>🎨 ¡Bienvenido a ARTEMIX!</h2>
+<p>Responde preguntas y supera retos de colores. Tendrás <strong>60 segundos por actividad</strong> y dos intentos por reto. Cada respuesta correcta suma puntos.</p>
+<label for="playerName">Nombre del jugador</label>
+<input id="playerName" maxlength="100" autocomplete="name" placeholder="Escribe tu nombre y apellido">
+<p class="muted small">Por privacidad, usa solo el nombre que la organización del juego te haya autorizado a mostrar.</p>
+<button id="startBtn">Comenzar juego</button>
+<button id="showBoardBtn" class="secondary">Ver clasificación</button>
+</section>
+<section id="game" class="panel hidden">
+<div class="row"><span id="stage" class="pill">Actividad 1 de 30</span><span class="pill timer">⏱ <span id="time">60</span> s</span><span class="pill">⭐ <span id="score">0</span></span></div>
+<div class="progress"><div id="bar" class="bar"></div></div>
+<h2 id="activityTitle">Reto</h2><p id="question"></p><div id="swatch" class="swatch hidden"></div>
+<div id="answers" class="answers"></div><div id="feedback" class="feedback" aria-live="polite"></div>
+<button id="nextBtn" class="hidden">Siguiente actividad →</button>
+</section>
+<section id="finish" class="panel hidden">
+<h2>🏆 ¡Partida terminada!</h2><p id="summary"></p><p id="saveStatus" class="notice">Preparando el resultado…</p>
+<button id="againBtn">Jugar otra vez</button><button id="finishBoardBtn" class="secondary">Ver clasificación</button>
+</section>
+<section id="board" class="panel">
+<div class="row"><h2>🏅 Tabla de clasificación</h2><button id="refreshBtn" class="secondary">Actualizar</button></div>
+<p class="muted small">Orden: mayor puntaje y, en caso de empate, menor tiempo total.</p>
+<div id="boardStatus" class="muted">Los resultados aparecerán cuando se configure la conexión segura.</div>
+<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Jugador</th><th>Puntos</th><th>Tiempo</th></tr></thead><tbody id="boardRows"></tbody></table></div>
+</section>
+<footer class="muted small">ARTEMIX · Juego educativo</footer>
+</main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, push, set, get, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+/* PASO DE CONFIGURACIÓN:
+   Reemplaza los valores de ejemplo por los de Firebase Console > Config.
+   databaseURL debe ser la dirección de tu Realtime Database.
+*/
+const firebaseConfig = {
+  apiKey: "PEGA_AQUI_API_KEY",
+  authDomain: "PEGA_AQUI_AUTH_DOMAIN",
+  databaseURL: "PEGA_AQUI_DATABASE_URL",
+  projectId: "PEGA_AQUI_PROJECT_ID",
+  storageBucket: "PEGA_AQUI_STORAGE_BUCKET",
+  messagingSenderId: "PEGA_AQUI_MESSAGING_SENDER_ID",
+  appId: "PEGA_AQUI_APP_ID"
+};
+
+const firebaseReady = Object.values(firebaseConfig).every(v => v && !v.startsWith("PEGA_AQUI"));
+let db = null;
+if (firebaseReady) {
+  const app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+}
+
+const questions = [
+["¿Cuál es el planeta conocido como planeta rojo?","Marte","Venus","Júpiter","Mercurio",0],
+["¿Cuántos lados tiene un hexágono?","Cinco","Seis","Siete","Ocho",1],
+["¿Qué gas necesitan las plantas para la fotosíntesis?","Oxígeno","Nitrógeno","Dióxido de carbono","Helio",2],
+["¿Cuál es el océano más grande?","Atlántico","Índico","Ártico","Pacífico",3],
+["¿Cuánto es 9 × 7?","56","63","72","67",1],
+["¿Cuál es la capital de Colombia?","Medellín","Cali","Bogotá","Cartagena",2],
+["¿En qué estado está el agua cuando es hielo?","Sólido","Líquido","Gaseoso","Plasma",0],
+["¿Qué instrumento mide la temperatura?","Barómetro","Termómetro","Cronómetro","Brújula",1],
+["¿Cuántos minutos tiene una hora?","30","50","60","100",2],
+["¿Qué animal es un mamífero?","Tortuga","Delfín","Gallina","Rana",1],
+["¿Cuál es el resultado de 100 ÷ 4?","20","25","40","50",1],
+["¿Qué estrella está más cerca de la Tierra?","Sirio","Sol","Polar","Vega",1],
+["¿Cuál es el idioma oficial predominante de Brasil?","Español","Francés","Portugués","Italiano",2],
+["¿Qué órgano bombea la sangre?","Pulmón","Cerebro","Hígado","Corazón",3],
+["¿Cuántos días tiene una semana?","5","6","7","8",2],
+["¿Cuál es un material que atrae un imán?","Madera","Hierro","Vidrio","Papel",1],
+["¿Qué figura tiene tres lados?","Cuadrado","Triángulo","Círculo","Rectángulo",1],
+["¿En qué continente está Egipto?","África","Europa","Oceanía","América",0],
+["¿Qué sentido usamos principalmente para escuchar?","Vista","Olfato","Oído","Tacto",2],
+["¿Qué necesitan los seres humanos para respirar?","Oxígeno","Humo","Arena","Vapor",0]
+].map(q=>({type:"q",text:q[0],options:q.slice(1,5),correct:q[5]}));
+
+const colors = [
+{a:"Rojo",b:"Amarillo",opts:["Verde","Naranja","Morado","Azul"],correct:1,hex:"#f3a44b"},
+{a:"Azul",b:"Amarillo",opts:["Verde","Naranja","Rosa","Rojo"],correct:0,hex:"#a8d85b"},
+{a:"Rojo",b:"Azul",opts:["Amarillo","Morado","Verde","Naranja"],correct:1,hex:"#9c70cf"},
+{a:"Blanco",b:"Negro",opts:["Gris","Rosa","Naranja","Verde"],correct:0,hex:"#b9bdc9"},
+{a:"Rojo",b:"Blanco",opts:["Turquesa","Rosa","Marrón","Verde"],correct:1,hex:"#f39cbd"},
+{a:"Azul",b:"Rojo",opts:["Verde","Morado","Amarillo","Gris"],correct:1,hex:"#8e69c8"},
+{a:"Amarillo",b:"Rojo",opts:["Naranja","Azul","Negro","Verde"],correct:0,hex:"#f4a141"},
+{a:"Azul",b:"Blanco",opts:["Celeste","Marrón","Rojo","Naranja"],correct:0,hex:"#a6e4f7"},
+{a:"Rojo",b:"Amarillo",opts:["Morado","Naranja","Azul","Gris"],correct:1,hex:"#f4a141"},
+{a:"Amarillo",b:"Azul",opts:["Verde","Rosa","Negro","Rojo"],correct:0,hex:"#9acb53"}
+].map(c=>({type:"c",...c,text:`¿Qué color se obtiene al mezclar ${c.a.toLowerCase()} y ${c.b.toLowerCase()}?`}));
+
+const activities = [...questions,...colors];
+const $ = id => document.getElementById(id);
+let name="", index=0, score=0, correctCount=0, colorCount=0, elapsed=0, startAt=0, timer=null, seconds=60, attempts=0, locked=false;
+const hide = id => $(id).classList.add("hidden");
+const show = id => $(id).classList.remove("hidden");
+function setStatus(message){$("saveStatus").textContent=message}
+function startGame(){
+  name=$("playerName").value.trim().replace(/\s+/g," ");
+  if(name.length<3){alert("Escribe un nombre de al menos 3 caracteres.");return}
+  index=0;score=0;correctCount=0;colorCount=0;elapsed=0;startAt=Date.now();
+  hide("welcome");hide("finish");hide("board");show("game");renderActivity();
+}
+function renderActivity(){
+  clearInterval(timer);seconds=60;attempts=0;locked=false;
+  $("stage").textContent=`Actividad ${index+1} de ${activities.length}`;
+  $("score").textContent=score;$("time").textContent=seconds;$("bar").style.width="0%";
+  $("feedback").textContent="";$("nextBtn").classList.add("hidden");
+  const a=activities[index];$("activityTitle").textContent=a.type==="q"?"🧠 Pregunta de conocimiento":"🎨 Reto de colores";
+  $("question").textContent=a.text;
+  const sw=$("swatch");if(a.type==="c"){show("swatch");sw.style.background=a.hex;sw.textContent=`${a.a} + ${a.b}`}else{hide("swatch");sw.textContent=""}
+  const holder=$("answers");holder.innerHTML="";
+  a.options.forEach((opt,i)=>{const b=document.createElement("button");b.textContent=opt;b.addEventListener("click",()=>answer(i));holder.appendChild(b)});
+  timer=setInterval(()=>{seconds--;elapsed++;$("time").textContent=seconds;$("bar").style.width=((60-seconds)/60*100)+"%";if(seconds<=0)finishActivity(true)},1000);
+}
+function answer(choice){
+ if(locked)return;const a=activities[index];attempts++;
+ if(choice===a.correct){locked=true;score+=100;correctCount++;if(a.type==="c")colorCount++;$("feedback").textContent="¡Correcto! +100 puntos";$("feedback").style.color="var(--green)";finishButtons()}
+ else if(attempts>=2){locked=true;$("feedback").textContent="Se acabaron los intentos. La respuesta era: "+a.options[a.correct];$("feedback").style.color="var(--pink)";finishButtons()}
+ else{$("feedback").textContent="No es esa. ¡Intenta una vez más!";$("feedback").style.color="var(--accent)"}
+}
+function finishButtons(){clearInterval(timer);[...$("answers").children].forEach(b=>b.disabled=true);$("nextBtn").classList.remove("hidden")}
+function finishActivity(timedOut=false){if(locked)return;locked=true;clearInterval(timer);[...$("answers").children].forEach(b=>b.disabled=true);if(timedOut)$("feedback").textContent="¡Se acabó el tiempo!";$("feedback").style.color="var(--pink)";$("nextBtn").classList.remove("hidden")}
+function next(){index++;if(index<activities.length)renderActivity();else endGame()}
+async function endGame(){
+ clearInterval(timer);elapsed=Math.max(elapsed,Math.floor((Date.now()-startAt)/1000));
+ hide("game");show("finish");$("summary").textContent=`${name}: ${score} puntos · ${correctCount} respuestas correctas de ${activities.length} · ${elapsed} segundos.`;
+ if(!db){setStatus("Falta completar la configuración de Firebase en el archivo index.html. El resultado no se ha guardado.");return}
+ setStatus("Guardando resultado…");
+ try{const entry=push(ref(db,"resultados"));await set(entry,{nombre:name,puntaje:score,tiempoSegundos:elapsed,respuestasCorrectas:correctCount,retosColoresSuperados:colorCount,creadoEn:Date.now()});setStatus("Resultado guardado correctamente.");await loadBoard()}
+ catch(e){console.error(e);setStatus("No se pudo guardar. Revisa las reglas de Firebase y la configuración. No abras la base de datos públicamente.")}
+}
+function fmtTime(s){return `${Math.floor(s/60)} min ${s%60} s`}
+async function loadBoard(){
+ $("boardStatus").textContent="Cargando resultados…";
+ if(!db){$("boardStatus").textContent="La conexión con Firebase aún no está configurada.";return}
+ try{const snap=await get(query(ref(db,"resultados"),orderByChild("puntaje"),limitToLast(100)));let rows=[];snap.forEach(child=>rows.push(child.val()));rows.sort((a,b)=>(b.puntaje-a.puntaje)||(a.tiempoSegundos-b.tiempoSegundos));$("boardRows").innerHTML="";
+ rows.forEach((r,i)=>{const tr=document.createElement("tr");[i+1,r.nombre||"Jugador",r.puntaje??0,fmtTime(r.tiempoSegundos??0)].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td)});$("boardRows").appendChild(tr)});
+ $("boardStatus").textContent=rows.length?`Mostrando ${rows.length} resultados.`:"Todavía no hay resultados guardados.";
+ }catch(e){console.error(e);$("boardStatus").textContent="No se pudieron leer los resultados. Revisa las reglas de Firebase."}
+}
+$("startBtn").addEventListener("click",startGame);$("nextBtn").addEventListener("click",next);$("againBtn").addEventListener("click",()=>{show("welcome");hide("finish");hide("board");$("playerName").value=name;});$("showBoardBtn").addEventListener("click",()=>{show("board");loadBoard();$("board").scrollIntoView({behavior:"smooth"})});$("finishBoardBtn").addEventListener("click",()=>{show("board");loadBoard();$("board").scrollIntoView({behavior:"smooth"})});$("refreshBtn").addEventListener("click",loadBoard);
+loadBoard();
+</script>
+</body>
+</html>
